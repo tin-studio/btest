@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>LAN Speedtest (Low-End Friendly)</title>
+  <style>
+    body {
+      background: #0f172a;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    .speed {
+      font-size: 80px;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    .btn-group {
+      margin-top: 20px;
+    }
+    button {
+      font-size: 18px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 6px;
+      border: none;
+      font-weight: bold;
+    }
+    button:disabled { background-color: #475569 !important; cursor: not-allowed; opacity: 0.5; }
+    
+    .btn-standard { background-color: #3b82f6; color: white; }
+    .btn-limitless-down { background-color: #8b5cf6; color: white; }
+    .btn-limitless-up { background-color: #ec4899; color: white; }
+    .btn-stop { background-color: #ef4444; color: white; }
+    
+    .results {
+      margin-top: 20px; 
+      font-size: 18px;
+      background: #1e293b;
+      display: inline-block;
+      padding: 12px 24px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>LAN Speedtest</h1>
+  <div id="status" style="font-size: 20px; color: #94a3b8;">Idle</div>
+  <div class="speed" id="speed">0</div>
+  <div style="font-size: 18px; color: #94a3b8; margin-bottom: 20px;">MBps</div>
+
+  <div class="results">
+    <div>Final Download: <span id="finalDown" style="color: #a78bfa;">-</span> MBps</div>
+    <div style="margin-top: 5px;">Final Upload: <span id="finalUp" style="color: #f472b6;">-</span> MBps</div>
+  </div>
+
+  <div class="btn-group">
+    <button id="startBtn" class="btn-standard" onclick="startStandardTest()">Run Standard Test (10s)</button>
+    <button id="limitlessDownBtn" class="btn-limitless-down" onclick="startLimitlessDownload()">Limitless Download</button>
+    <button id="limitlessUpBtn" class="btn-limitless-up" onclick="startLimitlessUpload()">Limitless Upload</button>
+    <button id="stopBtn" class="btn-stop" onclick="stopTest()" disabled>Stop Test</button>
+  </div>
+
+<script>
+const speedEl = document.getElementById("speed");
+const statusEl = document.getElementById("status");
+const finalDownEl = document.getElementById("finalDown");
+const finalUpEl = document.getElementById("finalUp");
+const startBtn = document.getElementById("startBtn");
+const limitlessDownBtn = document.getElementById("limitlessDownBtn");
+const limitlessUpBtn = document.getElementById("limitlessUpBtn");
+const stopBtn = document.getElementById("stopBtn");
+
+let isRunning = false;
+let forceStop = false;
+let activeController = null;
+
+// UI Throttling Variables
+let uiInterval = null;
+let currentMbps = "0.0";
+
+function setControlState(running) {
+  isRunning = running;
+  startBtn.disabled = running;
+  limitlessDownBtn.disabled = running;
+  limitlessUpBtn.disabled = running;
+  stopBtn.disabled = !running;
+}
+
+function stopTest() {
+  if (!isRunning) return;
+  forceStop = true;
+  if (activeController) activeController.abort();
+  statusEl.textContent = "Stopping...";
+}
+
+function startUiLoop() {
+  uiInterval = setInterval(() => {
+    requestAnimationFrame(() => {
+      speedEl.textContent = currentMbps;
+    });
+  }, 250); 
+}
+
+function stopUiLoop() {
+  clearInterval(uiInterval);
+  speedEl.textContent = currentMbps;
+}
+
+async function startStandardTest() {
+  setControlState(true);
+  forceStop = false;
+  finalDownEl.textContent = "-";
+  finalUpEl.textContent = "-";
+  currentMbps = "0.0";
+  
+  startUiLoop();
+  const down = await downloadTest(false);
+  finalDownEl.textContent = down.toFixed(1);
+
+  if (!forceStop) {
+    const up = await uploadTest(false);
+    finalUpEl.textContent = up.toFixed(1);
+  }
+  stopUiLoop();
+
+  statusEl.textContent = forceStop ? "Stopped" : "Done";
+  setControlState(false);
+}
+
+async function startLimitlessDownload() {
+  setControlState(true);
+  forceStop = false;
+  finalDownEl.textContent = "-";
+  currentMbps = "0.0";
+
+  startUiLoop();
+  const down = await downloadTest(true);
+  finalDownEl.textContent = down.toFixed(1);
+  stopUiLoop();
+
+  statusEl.textContent = "Stopped";
+  setControlState(false);
+}
+
+async function startLimitlessUpload() {
+  setControlState(true);
+  forceStop = false;
+  finalUpEl.textContent = "-";
+  currentMbps = "0.0";
+
+  startUiLoop();
+  const up = await uploadTest(true);
+  finalUpEl.textContent = up.toFixed(1);
+  stopUiLoop();
+
+  statusEl.textContent = "Stopped";
+  setControlState(false);
+}
+
+// Fixed download test: uses WritableStream to immediately discard bytes
+async function downloadTest(isLimitless) {
+  statusEl.textContent = isLimitless ? "Downloading (Limitless)..." : "Downloading...";
+  const start = performance.now();
+  let bytes = 0;
+
+  activeController = new AbortController();
+  let timeoutId = !isLimitless ? setTimeout(() => activeController.abort(), 10000) : null;
+
+  try {
+    const res = await fetch("download", { signal: activeController.signal });
+
+    const discardStream = new WritableStream({
+      write(chunk) {
+        if (forceStop) throw new Error("Aborted");
+        bytes += chunk.byteLength;
+
+        const seconds = (performance.now() - start) / 1000;
+        if (seconds > 0) {
+          currentMbps = (bytes / (seconds * 1024 * 1024)).toFixed(1);
+        }
+      }
+    });
+
+    await res.body.pipeTo(discardStream);
+  } catch (e) {
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    activeController = null;
+  }
+
+  const seconds = (performance.now() - start) / 1000;
+  const finalScore = seconds > 0 ? (bytes / (seconds * 1024 * 1024)) : 0;
+  currentMbps = finalScore.toFixed(1);
+  return finalScore;
+}
+
+// Fixed upload test: reuses buffer and awaits request completions
+async function uploadTest(isLimitless) {
+  statusEl.textContent = isLimitless ? "Uploading (Limitless)..." : "Uploading...";
+  const start = performance.now();
+  let bytes = 0;
+
+  const duration = 10000;
+  // 1MB chunk created as a native Blob (bypasses V8 JS heap garbage collection overhead)
+  const chunkSize = 1024 * 1024;
+  const chunkBlob = new Blob([new Uint8Array(chunkSize)]);
+  const concurrency = 2; // Keeps socket pipe saturated without overwhelming client TCP buffer
+
+  activeController = new AbortController();
+
+  async function worker() {
+    while (!forceStop) {
+      if (!isLimitless && (performance.now() - start >= duration)) break;
+
+      try {
+        const response = await fetch("upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: chunkBlob, // Native Blob upload prevents V8 memory growth
+          signal: activeController.signal,
+          cache: "no-store"
+        });
+
+        if (!response.ok) break;
+
+        bytes += chunkSize;
+
+        const seconds = (performance.now() - start) / 1000;
+        if (seconds > 0) {
+          currentMbps = (bytes / (seconds * 1024 * 1024)).toFixed(1);
+        }
+      } catch (e) {
+        break; // Triggered when aborted or connection terminates
+      }
+    }
+  }
+
+  // Launch workers in parallel
+  const workers = Array.from({ length: concurrency }, () => worker());
+
+  let timeoutId = null;
+  if (!isLimitless) {
+    timeoutId = setTimeout(() => {
+      if (activeController) activeController.abort();
+    }, duration);
+  }
+
+  await Promise.all(workers);
+
+  if (timeoutId) clearTimeout(timeoutId);
+  activeController = null;
+
+  const seconds = (performance.now() - start) / 1000;
+  const finalScore = seconds > 0 ? (bytes / (seconds * 1024 * 1024)) : 0;
+  currentMbps = finalScore.toFixed(1);
+  return finalScore;
+}
+
+</script>
+
+</body>
+</html>
