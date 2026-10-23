@@ -8,13 +8,13 @@
 
 ---
 
-## 📖 Overview
+## ● Overview
 
 **btest** is designed to measure network performance (Download and Upload speeds) across a local area network (LAN). Powered by a high-performance Go backend with **zero external dependencies** and an optimized browser frontend, it avoids heavy memory overhead, making it ideal for running on low-end hardware, single-board computers (like Raspberry Pi), or home routers.
 
 ---
 
-## ✨ Features
+## ● Features
 
 * **Zero External Dependencies:** Built entirely using Go's standard library (`net/http`, `crypto/rand`, `embed`).
 * **Embedded Frontend:** The HTML/CSS/JS dashboard is compiled directly into the binary via `go:embed`, requiring only a single executable file to run.
@@ -25,17 +25,17 @@
 
 ---
 
-## 🛠️ Prerequisites
+## ● Prerequisites
 
-* [Go (v1.22 or higher)](https://golang.org/doc/install) installed on your host machine.
+* [Go (v1.26.5 or higher)](https://golang.org/doc/install) installed on your host machine.
 
 ---
 
-## 📦 Installation & Running
+## ● Installation & Running
 
 1. **Clone the repository:**
 ```bash
-git clone [https://github.com/tin-studio/btest.git](https://github.com/tin-studio/btest.git)
+git clone https://github.com/tin-studio/btest.git
 cd btest
 
 ```
@@ -52,17 +52,18 @@ go run main.go
 go build -o btest main.go
 ./btest
 
-*if encountered error especially on older windows, please consider to install and enable [VxKex](https://github.com/i486/VxKex) to the executable
-
 ```
 
 
+**Or just download binaries/executables at releases page**
+
+*if encountered error especially on older windows, please consider to install and enable [VxKex](https://github.com/i486/VxKex) to the executable*
 
 The server will start on port **8083** by default (`http://0.0.0.0:8083`).
 
 ---
 
-## 🌐 Usage
+## ● Usage
 
 1. Open your browser and navigate to `http://<your-server-ip>:8083`.
 
@@ -84,7 +85,7 @@ The server will start on port **8083** by default (`http://0.0.0.0:8083`).
 
 ---
 
-## 🔌 API Endpoints
+## ● API Endpoints
 
 * `GET /` — Serves the embedded web dashboard.
 * `GET /download` — Generates a high-speed pseudo-random byte stream (`256 KB` chunks) with caching disabled for accurate downlink testing.
@@ -96,16 +97,13 @@ The server will start on port **8083** by default (`http://0.0.0.0:8083`).
 
 ---
 
-## 🤝 Contributing
+## ● Contributing
 
 Contributions are welcome! Feel free to open an issue or submit a pull request for improvements.
 
 ---
 
-## 📄 License
+## ● License
 
 Distributed under the MIT License. See `LICENSE` for details.
 
-```
-
-```
