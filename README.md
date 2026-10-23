@@ -52,6 +52,8 @@ go run main.go
 go build -o btest main.go
 ./btest
 
+*if encountered error especially on older windows, please consider to install and enable [VxKex](https://github.com/i486/VxKex) to the executable
+
 ```
 
 
