@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on any tag starting with 'v' (e.g., v1.0.0)
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create a release and upload assets
+
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            output: btest-linux-amd64
+          - os: linux
+            arch: arm64
+            output: btest-linux-arm64
+          - os: windows
+            arch: amd64
+            output: btest-windows-amd64.exe
+          - os: darwin
+            arch: amd64
+            output: btest-darwin-amd64
+          - os: darwin
+            arch: arm64
+            output: btest-darwin-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5' # Matches your go.mod version[cite: 3]
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          go build -ldflags="-s -w" -o dist/${{ matrix.output }} main.go
+
+      - name: Upload binaries to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
